@@ -1,6 +1,0 @@
-echo "# Stat197DataScience" >> HelloWorld.md
-git init
-git add HelloWorld.md
-git commit -m "first commit"
-git remote add origin https://github.com/pearlrose/Stat197DataScience.git
-git push -u origin master
