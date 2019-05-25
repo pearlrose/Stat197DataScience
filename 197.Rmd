@@ -1,0 +1,102 @@
+---
+title: 'Exploratory Graphs'
+output: html_document
+---
+
+``` {r}
+library(dplyr)
+library(ggplot2)
+
+NEI <- readRDS("summarySCC_PM25.rds")
+SCC <- readRDS("Source_Classification_Code.rds")
+
+```
+
+            
+#### Question 1: Have total emissions from PM2.5 decreased in the United States from 1999 to 2008? Using the base plotting system, make a plot showing the total PM2.5 emission from all sources for each of the years 1999, 2002, 2005, and 2008.
+
+```{r, echo = FALSE}
+total_annual_emissions <- aggregate(Emissions ~ year, NEI, FUN = sum)
+color_range <- 2:(length(total_annual_emissions$year)+1)
+with(total_annual_emissions, 
+     barplot(height=Emissions/1000, names.arg = year, col = color_range, 
+             xlab = "Year", ylab = expression('PM'[2.5]*' in Kilotons'),
+             main = expression('Annual Emission PM'[2.5]*' from 1999 to 2008')))
+```
+
+#### Question #2: Have total emissions from PM2.5 decreased in the Baltimore City, Maryland __(fips == "24510")__ from 1999 to 2008? Use the base plotting system to make a plot answering this question.
+
+```{r, echo = FALSE}
+b_total_emissions <- NEI %>%
+  filter(fips == "24510") %>%
+  group_by(year) %>%
+  summarise(Emissions = sum(Emissions))
+
+with(b_total_emissions,
+     barplot(height=Emissions/1000, names.arg = year, col = color_range, 
+             xlab = "Year", ylab = expression('PM'[2.5]*' in Kilotons'),
+             main = expression('Baltimore, Maryland Emissions from 1999 to 2008'))
+)
+```
+
+#### Question #3: Of the four types of sources indicated by the __type__ (point, nonpoint, onroad, nonroad) variable, which of these four sources have seen decreases in emissions from 1999-2008 for Baltimore City? Which have seen increases in emissions from 1999-2008?
+
+```{r, echo = FALSE}
+b_emissions <- NEI %>%
+  filter(fips == "24510") %>%
+  group_by(year, type) %>%
+  summarise(Emissions=sum(Emissions))
+
+ggplot(data = b_emissions, aes(x = factor(year), y = Emissions, fill = type, colore = "black")) +
+  geom_bar(stat = "identity") + facet_grid(. ~ type) + 
+  xlab("Year") + ylab(expression('PM'[2.5]*' Emission')) +
+  ggtitle("Baltimore Emissions by Source Type") 
+
+```
+
+#### Question #4: Across the United States, how have emissions from coal combustion-related sources changed from 1999-2008?
+
+```{r, echo = FALSE}
+coal_SCC <- SCC[grep("[Cc][Oo][Aa][Ll]", SCC$EI.Sector), "SCC"]
+coal_NEI <- NEI %>% filter(SCC %in% coal_SCC)
+coal_summary <- coal_NEI %>% group_by(year) %>% summarise(Emissions = sum(Emissions))
+
+ggplot(coal_summary, aes(x=year, y=round(Emissions/1000,2), label=round(Emissions/1000,2), fill=year)) + geom_bar(stat="identity") + ylab(expression('PM'[2.5]*' Emissions in Kilotons')) + xlab("Year") + geom_label(aes(fill = year),colour = "white", fontface = "bold") + ggtitle("Coal Combustion Emissions, 1999 to 2008.")
+
+```
+
+#### Question #5: How have emissions from motor vehicle sources changed from 1999-2008 in Baltimore City?
+
+```{r, echo = FALSE}
+coal_summary <- coal_NEI %>% group_by(year) %>% summarise(Emissions = sum(Emissions))
+scc_vehicles <- SCC[grep("[Vv]ehicle", SCC$EI.Sector), "SCC"]
+vehicle_emissions <- NEI %>% 
+  filter(SCC %in% scc_vehicles & fips == "24510") %>%
+  group_by(year) %>%
+  summarise(Emissions = sum(Emissions))
+
+ggplot(coal_summary, aes(x=year, y=round(Emissions/1000,2), label=round(Emissions/1000,2), fill=year)) + geom_bar(stat="identity") + ylab(expression('PM'[2.5]*' Emissions in Kilotons')) + xlab("Year") + geom_label(aes(fill = year),colour = "white", fontface = "bold") + ggtitle("Baltimore Vehicle Emissions, 1999 to 2008.")
+
+```
+
+#### Question #6: Compare emissions from motor vehicle sources in Baltimore City with emissions from motor vehicle sources in Los Angeles County, California __(fips == "06037")__. Which city has seen greater changes over time in motor vehicle emissions?
+
+```{r, echo = FALSE}
+fips_lookup <- data.frame(fips = c("06037", "24510"), county = c("Los Angeles", "Baltimore"))
+
+vehicles_SCC <- SCC[grep("[Vv]ehicle", SCC$EI.Sector), "SCC"]
+vehicle_emissions <- NEI %>%
+  filter(SCC %in% vehicles_SCC & fips %in% fips_lookup$fips) %>%
+  group_by(fips, year) %>%
+  summarize(Emissions = sum(Emissions))
+
+vehicle_emissions <- merge(vehicle_emissions, fips_lookup)
+
+ggplot(vehicle_emissions, aes(x = factor(year), y = round(Emissions/1000, 2), 
+  label=round(Emissions/1000,2), fill = year)) +
+  geom_bar(stat = "identity") + facet_grid(. ~ county) +
+  ylab(expression('PM'[2.5]*' Emissions in Kilotons')) + xlab("Year") +
+  geom_label(aes(fill = year),colour = "white", fontface = "bold") +
+  ggtitle("Los Angeles vs Baltimore Vehicle Emissions.")
+
+````
